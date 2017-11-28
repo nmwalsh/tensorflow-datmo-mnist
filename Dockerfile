@@ -1,1 +1,1 @@
-FROM tensorflow/tensorflow
+FROM tensorflow/tensorflow:1.4.0

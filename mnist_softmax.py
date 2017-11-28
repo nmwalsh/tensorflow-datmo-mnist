@@ -30,20 +30,40 @@ import tensorflow as tf
 
 FLAGS = None
 
+def basic_classifier(x, num_classes):
+  # More info on tf.Variable: https://www.tensorflow.org/api_docs/python/tf/Variable
+  W = tf.Variable(tf.zeros([784, num_classes]))
+  b = tf.Variable(tf.zeros([num_classes]))
+  
+  # Add summary ops to collect data to visualize on tensorboard
+  w_h = tf.summary.histogram("weights", W)
+  b_h = tf.summary.histogram("biases", b)
 
+  # More info on tf.matmul: https://www.tensorflow.org/api_docs/python/tf/matmul
+  y = tf.matmul(x, W) + b
+  return y
 
 def main(_):
-  # Import data
+  # Import MNIST data
   mnist = input_data.read_data_sets(FLAGS.data_dir, one_hot=True)
+  num_classes = 10
+
+  # Set hyperparameters
+  learning_rate = 0.01
+  training_iterations = 30
+  batch_size = 100
+  display_step = 2
 
   # Create the model
-  x = tf.placeholder(tf.float32, [None, 784])
-  W = tf.Variable(tf.zeros([784, 10]))
-  b = tf.Variable(tf.zeros([10]))
-  y = tf.matmul(x, W) + b
+  # More info on tf.placeholder: https://www.tensorflow.org/api_docs/python/tf/placeholder
+  x = tf.placeholder(tf.float32, [None, 784]) # mnist data image of shape 28*28=784
 
   # Define loss and optimizer
-  y_ = tf.placeholder(tf.float32, [None, 10])
+  y_ = tf.placeholder(tf.float32, [None, num_classes])
+
+  # Build the graph for the basic classification
+  with tf.name_scope("model") as scope:
+    model = basic_classifier(x, num_classes)
 
   # The raw formulation of cross-entropy,
   #
@@ -54,23 +74,55 @@ def main(_):
   #
   # So here we use tf.nn.softmax_cross_entropy_with_logits on the raw
   # outputs of 'y', and then average across the batch.
-  cross_entropy = tf.reduce_mean(
-      tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y))
-  train_step = tf.train.GradientDescentOptimizer(0.5).minimize(cross_entropy)
+  with tf.name_scope("cost_function") as scope: 
+    # Minimize error using cross entropy
+    cost_function = tf.reduce_mean(
+        tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=model))
+    # Create a summary to monitor the cost function on tensorboard
+    tf.summary.scalar("cost_function", cost_function)
 
-  sess = tf.InteractiveSession()
-  tf.global_variables_initializer().run()
-  
-  # Train
-  for _ in range(1000):
-    batch_xs, batch_ys = mnist.train.next_batch(100)
-    sess.run(train_step, feed_dict={x: batch_xs, y_: batch_ys})
 
-  # Test trained model
-  correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))
-  accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-  print(sess.run(accuracy, feed_dict={x: mnist.test.images,
-                                      y_: mnist.test.labels}))
+  with tf.name_scope("train") as scope:
+    # Gradient descent
+    train_step = tf.train.GradientDescentOptimizer(learning_rate).minimize(cost_function)
+
+  # Initialize all variables
+  init = tf.global_variables_initializer()
+
+  # Merge all summaries into single operator
+  merged_summary_ops = tf.summary.merge_all()
+
+  with tf.Session() as sess:
+    sess.run(init)
+
+    # Set the logs writer to the folder 
+    file_writer = tf.summary.FileWriter('logs')
+    file_writer.add_graph(tf.get_default_graph())
+
+    for iteration in range(training_iterations):
+      avg_cost = 0.
+      total_batch = int(mnist.train.num_examples/batch_size)
+      # Train
+      for i in range(total_batch):
+        batch_xs, batch_ys = mnist.train.next_batch(batch_size)
+        # Fit training using batch data
+        sess.run(train_step, feed_dict={x: batch_xs, y_: batch_ys})
+        # Calculate the average cost for the training iteration
+        avg_cost += sess.run(cost_function, feed_dict={x: batch_xs, y_: batch_ys})/total_batch
+        # Write logs for each batch 
+        summary_str = sess.run(merged_summary_ops, feed_dict={x: batch_xs, y_:batch_ys})
+        file_writer.add_summary(summary_str, iteration*total_batch + i)
+      # Display logs for each display step 
+      if iteration % display_step == 0:
+        print("Iteration:", '%04d' % (iteration + 1), "cost=", "{:.9f}".format(avg_cost))
+    # Training complete!
+
+    # Test trained model
+    correct_prediction = tf.equal(tf.argmax(model, 1), tf.argmax(y_, 1))
+    # Calculate the accuracy 
+    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+    print("Accuracy:", sess.run(accuracy, feed_dict={x: mnist.test.images,
+                                        y_: mnist.test.labels}))
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()

@@ -121,6 +121,8 @@ def bias_variable(shape):
 
 
 def main(_):
+  print('yo yo yo')
+
   # Import data
   mnist = input_data.read_data_sets(FLAGS.data_dir, one_hot=True)
 
@@ -130,8 +132,11 @@ def main(_):
   # Define loss and optimizer
   y_ = tf.placeholder(tf.float32, [None, 10])
 
+  print('yo yo yo')
   # Build the graph for the deep net
   y_conv, keep_prob = deepnn(x)
+
+  print('yo yo yo')
 
   with tf.name_scope('loss'):
     cross_entropy = tf.nn.softmax_cross_entropy_with_logits(labels=y_,
@@ -146,6 +151,7 @@ def main(_):
     correct_prediction = tf.cast(correct_prediction, tf.float32)
   accuracy = tf.reduce_mean(correct_prediction)
 
+  # Writing graph to file
   graph_location = tempfile.mkdtemp()
   print('Saving graph to: %s' % graph_location)
   train_writer = tf.summary.FileWriter(graph_location)
