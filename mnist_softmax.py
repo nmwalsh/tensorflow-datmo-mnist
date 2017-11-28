@@ -31,6 +31,7 @@ import tensorflow as tf
 FLAGS = None
 
 
+
 def main(_):
   # Import data
   mnist = input_data.read_data_sets(FLAGS.data_dir, one_hot=True)
@@ -59,6 +60,7 @@ def main(_):
 
   sess = tf.InteractiveSession()
   tf.global_variables_initializer().run()
+  
   # Train
   for _ in range(1000):
     batch_xs, batch_ys = mnist.train.next_batch(100)
